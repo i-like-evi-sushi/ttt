@@ -1,0 +1,41 @@
+
+Public Const sn As String = "Book3.xlsx"
+
+Function シート存在確認(SheetName As String)
+Dim ws As Worksheet
+ 
+On Error Resume Next
+Set ws = Workbooks(sn).Worksheets(SheetName)
+On Error GoTo 0
+ 
+シート存在確認 = Not ws Is Nothing
+ 
+End Function
+
+Sub test()
+
+Dim i, j, k, ii, jj, kk
+Dim ret
+Dim PhaseWire
+Dim SheetName As String
+
+For i = 1 To 314
+    SheetName = LTrim(Str(i))
+    ret = シート存在確認(SheetName)
+    If ret = True Then
+        PhaseWire = Workbooks(sn).Worksheets(SheetName).Cells(2, 5)
+        
+        For j = 5 To 11
+            For k = 3 To 10
+                Workbooks(sn).Worksheets(SheetName).Cells(j, k) = Workbooks("マスタファイル.xlsm").Worksheets(PhaseWire & "マスタ").Cells(j, k)
+            Next k
+        Next j
+    
+    End If
+    
+Next i
+
+
+
+
+End Sub
