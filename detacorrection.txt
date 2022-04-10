@@ -1,0 +1,284 @@
+'エラー確認画面用
+
+Private Sub CommandButton1_Click()
+
+If Cells(1, 10) >= 1 Then
+    Cells(1, 10) = Cells(1, 10) - 1
+    Call 表示
+End If
+
+
+End Sub
+
+Private Sub CommandButton2_Click()
+
+Call 表示
+
+End Sub
+
+Private Sub CommandButton3_Click()
+
+    Cells(1, 10) = Cells(1, 10) + 1
+    Call 表示
+
+
+End Sub
+
+'logモジュール
+
+'*****************************************
+'メイン処理
+'*****************************************
+Sub makelog(ByVal msg As String)
+    
+    Dim filePath As String
+    Dim log As LogClass
+    Dim errorMessage As String
+    
+    'ログファイルのパスを指定
+    filePath = ThisWorkbook.Path & "\log.txt"
+    
+    'クラス「LogClass」のオブジェクトを作成
+    Set log = New LogClass
+    
+    On Error GoTo LogFileOpenErr
+
+    'ログファイルOPEN
+    log.OpenFile (filePath)
+    
+    On Error GoTo Err
+
+    'ログ出力
+    log.WriteFile (msg)
+    'ログファイルCLOSE
+    log.CloseFile
+
+    '後片付け
+    Set log = Nothing
+
+    Exit Sub
+    
+LogFileOpenErr:
+    '後片付け
+    Set log = Nothing
+    'エラーメッセージを設定
+    errorMessage = "ログファイルOPENでエラーが発生しました。" & vbCrLf & _
+                    "ログファイルを開いている場合は閉じてください。" & vbCrLf & _
+                    "処理を中断します。"
+    'エラーメッセージを出力
+    MsgBox errorMessage, vbCritical, "エラー発生"
+
+    Exit Sub
+
+Err:
+    'ログファイルCLOSE
+    log.CloseFile
+    '後片付け
+    Set log = Nothing
+    'エラーメッセージを設定
+    errorMessage = "エラーが発生しました。" & vbCrLf & _
+            "処理を中断します" & vbCrLf & vbCrLf & _
+            "エラー番号: " & Err.Number & vbCrLf & _
+            "エラー内容: " & Err.Description
+    'エラーメッセージを出力
+    MsgBox errorMessage, vbCritical, "エラー発生"
+    
+End Sub
+
+'ここからLogClass
+
+
+'メンバ変数
+Private fileNo As Integer
+Private logFilePath As String
+
+'----------------
+'ログファイルOPEN
+'----------------
+Public Sub OpenFile(filePath As String)
+    'ログファイルのパスを設定
+    logFilePath = filePath
+    '使用可能なファイル番号を取得
+    fileNo = FreeFile
+    '追記モードでOPEN(ログファイルが存在しない場合は新規作成)
+    Open logFilePath For Append As #fileNo
+End Sub
+
+'----------------
+'ログ出力
+'----------------
+Public Sub WriteFile(message As String)
+    'ログ出力
+    Print #fileNo, message
+    '反映させるために一旦CLOSEし再OPEN
+    Close #fileNo
+    Open logFilePath For Append As #fileNo
+End Sub
+
+'----------------
+'ログファイルCLOSE
+'----------------
+Public Sub CloseFile()
+    Close #fileNo
+End Sub
+
+
+
+'エラーデータ集計用
+
+
+Sub DataAnalysis()
+
+Dim i, j, k, ii, jj, kk, row
+Dim ret
+Dim PhaseWire
+Dim SheetName As String
+Dim freq
+freq = 60
+
+For i = 1 To 314
+    SheetName = LTrim(Str(i) & "_" & freq & "Hz")
+    ret = シート存在確認(SheetName)
+    
+    If ret = True Then
+        PhaseWire = Workbooks(sn).Worksheets(SheetName).Cells(2, 8)
+        
+        Select Case PhaseWire
+            Case "1P2W"
+                CheckListcolumn = 2
+            Case "1P2W(2回路)"
+                CheckListcolumn = 3
+            Case "1P3W"
+                CheckListcolumn = 4
+            Case "1P3W(N)"
+                CheckListcolumn = 5
+            Case "3P3W"
+                CheckListcolumn = 6
+            Case "3P3W(3CT)"
+                CheckListcolumn = 7
+            Case "3P4W"
+                CheckListcolumn = 8
+
+                
+        End Select
+        
+        Call MakeCheckList(CheckListcolumn)
+        
+        For Each row In ArrForCheckList()
+            For j = 1 To 10
+                If Workbooks(sn).Worksheets(SheetName).Cells(row, j) = "×" Then
+                
+                    Debug.Print (SheetName & " " & row & "行" & j & "列" & " 相線式；" & PhaseWire)
+                    Call makelog(SheetName & "," & row & "行," & j & "列," & " 相線式；" & PhaseWire)
+                End If
+            Next j
+        Next
+    End If
+    
+Next i
+
+
+End Sub
+
+
+Function シート存在確認(SheetName As String)
+    Dim ws As Worksheet
+ 
+    On Error Resume Next
+        Set ws = Workbooks(sn).Worksheets(SheetName)
+    On Error GoTo 0
+ 
+    シート存在確認 = Not ws Is Nothing
+ 
+End Function
+
+
+'チェックする箇所のリスト作成
+
+Sub MakeCheckList(ByVal column As Variant)
+Dim i
+Dim Ar() As Variant
+
+'チェックリスト作成（動的配列）
+
+For i = 2 To 300
+    If ThisWorkbook.Sheets("チェックリスト").Cells(i, column) <> "" Then
+        If IsArrayEx(Ar) = 0 Then
+            '初期化されていないので初期化
+            ReDim Preserve Ar(0)
+        Else
+            '初期化されているので要素を追加
+            ReDim Preserve Ar(UBound(Ar) + 1)
+        End If
+        Ar(UBound(Ar)) = ThisWorkbook.Sheets("チェックリスト").Cells(i, column)
+    End If
+    
+Next
+
+'ここで作成したチェックリスト配列をコピー
+ArrForCheckList = Ar()
+
+End Sub
+
+'***********************************************************
+' 機能   : 引数が配列か判定し、配列の場合は空かどうかも判定する
+' 引数   : varArray  配列
+' 戻り値 : 判定結果（1:配列/0:空の配列/-1:配列じゃない）
+'***********************************************************
+Public Function IsArrayEx(varArray As Variant) As Long
+On Error GoTo ERROR_
+
+    If IsArray(varArray) Then
+        IsArrayEx = IIf(UBound(varArray) >= 0, 1, 0)
+    Else
+        IsArrayEx = -1
+    End If
+
+    Exit Function
+
+ERROR_:
+    If Err.Number = 9 Then
+        IsArrayEx = 0
+    End If
+End Function
+
+
+'エラー箇所表示用
+
+Sub 表示()
+
+Dim i, j, Readrow, tr, tl
+Dim SheetName
+Dim MoveTargetrow, MoveTargetcolumn
+
+Readrow = ThisWorkbook.Sheets("エラー確認").Cells(1, 10)
+
+SheetName = ThisWorkbook.Sheets("エラー確認").Cells(Readrow, 1)
+
+tr = ThisWorkbook.Sheets("エラー確認").Cells(Readrow, 2)
+tl = ThisWorkbook.Sheets("エラー確認").Cells(Readrow, 3)
+
+
+If SheetName = "" Then
+    MsgBox ("対象がありません")
+    End
+End If
+
+
+MoveTargetrow = Left(tr, Len(tr) - 1)
+MoveTargetcolumn = Left(tl, Len(tl) - 1)
+
+Workbooks(sn).Worksheets(SheetName).Activate
+Cells(CInt(MoveTargetrow), CInt(MoveTargetcolumn)).Activate
+'ThisWorkbook.Activate
+
+End Sub
+
+
+
+'変数
+
+Public ArrForCheckList() As Variant
+Public Const sn As String = "Book4.xlsx"
+Public CheckListcolumn As Variant
+
